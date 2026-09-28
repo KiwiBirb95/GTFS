@@ -30,7 +30,7 @@ if __name__ == "__main__":
             script_path,
             "--global.developmentMode=false",
             "--server.headless=false",
-            "--server.port=8501",
+            "--server.port={port}",
             "--browser.serverAddress=localhost",
         ]
 
