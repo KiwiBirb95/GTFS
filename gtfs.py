@@ -54,9 +54,16 @@ PRIORITY_ORDER = [
 def handle_source_ingestion(prefix, title_label):
     st.subheader(title_label)
 
+    # source_type = st.radio(
+    #     f"Select GTFS Source ({title_label}):",
+    #     ["Upload GTFS .zip", "Open Unzipped Folder"],
+    #     horizontal = True,
+    #     key=f"{prefix}_source_type_radio"
+    # )
+
     source_type = st.radio(
         f"Select GTFS Source ({title_label}):",
-        ["Upload GTFS .zip", "Open Unzipped Folder"],
+        ["Upload GTFS .zip"],
         horizontal = True,
         key=f"{prefix}_source_type_radio"
     )
@@ -80,31 +87,31 @@ def handle_source_ingestion(prefix, title_label):
                 st.session_state[f"{prefix}_current_key"] = None
                 st.session_state[f"{prefix}_active_source"] = None
                 st.session_state.pop(f"{prefix}_validation_executed", None)
-    else:
-        col_btn, col_path = st.columns([1, 4], vertical_alignment="center")
-        with col_btn:
-            if st.button("Browse Folder...", key=f"{prefix}_btn_browse", width="stretch"):
-                chosen = pick_folder()
-                if chosen:
-                    st.session_state[f"{prefix}_selected_folder"] = chosen
-                    st.rerun()
+    # else:
+    #     col_btn, col_path = st.columns([1, 4], vertical_alignment="center")
+    #     with col_btn:
+    #         if st.button("Browse Folder...", key=f"{prefix}_btn_browse", width="stretch"):
+    #             chosen = pick_folder()
+    #             if chosen:
+    #                 st.session_state[f"{prefix}_selected_folder"] = chosen
+    #                 st.rerun()
 
-        selected_dir = st.session_state.get(f"{prefix}_selected_folder", "")
-        with col_path:
-            if selected_dir:
-                st.code(selected_dir, language="text")
-            else:
-                st.caption("No folder selected yet. Click 'Browse Folder' to select an unzipped GTFS folder.")
+    #     selected_dir = st.session_state.get(f"{prefix}_selected_folder", "")
+    #     with col_path:
+    #         if selected_dir:
+    #             st.code(selected_dir, language="text")
+    #         else:
+    #             st.caption("No folder selected yet. Click 'Browse Folder' to select an unzipped GTFS folder.")
 
-        if selected_dir and os.path.isdir(selected_dir):
-            new_file_key = f"folder_{os.path.abspath(selected_dir)}"
-            new_source = selected_dir
-        else:
-            if st.session_state[f"{prefix}_current_key"] and str(st.session_state[f"{prefix}_current_key"]).startswith("folder_"):
-                st.session_state[f"{prefix}_tables"] = {}
-                st.session_state[f"{prefix}_current_key"] = None
-                st.session_state[f"{prefix}_active_source"] = None
-                st.session_state.pop(f"{prefix}_validation_executed", None)
+    #     if selected_dir and os.path.isdir(selected_dir):
+    #         new_file_key = f"folder_{os.path.abspath(selected_dir)}"
+    #         new_source = selected_dir
+    #     else:
+    #         if st.session_state[f"{prefix}_current_key"] and str(st.session_state[f"{prefix}_current_key"]).startswith("folder_"):
+    #             st.session_state[f"{prefix}_tables"] = {}
+    #             st.session_state[f"{prefix}_current_key"] = None
+    #             st.session_state[f"{prefix}_active_source"] = None
+    #             st.session_state.pop(f"{prefix}_validation_executed", None)
 
     if new_file_key and (st.session_state[f"{prefix}_current_key"] != new_file_key):
         with st.spinner(f"Extracting and parsing GTFS tables for {title_label}..."):
