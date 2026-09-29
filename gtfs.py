@@ -12,15 +12,13 @@ if sys.platform == "win32":
         try:
             _orig_call_connection_lost(self, exc)
         except (ConnectionResetError, OSError):
-            pass  # Socket was already closed by browser, safe to ignore
+            pass
 
     _ProactorBasePipeTransport._call_connection_lost = (
         _call_connection_lost_silenced
     )
     
-import zipfile
 from pathlib import Path
-import pandas as pd
 import streamlit as st
 
 from gtfs_utils import load_gtfs_tables, create_gtfs_zip, pick_folder, reload_single_table
