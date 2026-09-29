@@ -61,32 +61,32 @@ def handle_source_ingestion(prefix, title_label):
     #     key=f"{prefix}_source_type_radio"
     # )
 
-    source_type = st.radio(
-        f"Select GTFS Source ({title_label}):",
-        ["Upload GTFS .zip"],
-        horizontal = True,
-        key=f"{prefix}_source_type_radio"
-    )
+    # source_type = st.radio(
+    #     f"Select GTFS Source ({title_label}):",
+    #     ["Upload GTFS .zip"],
+    #     horizontal = True,
+    #     key=f"{prefix}_source_type_radio"
+    # )
 
     new_file_key = None
     new_source = None
 
-    if source_type == "Upload GTFS .zip":
-        uploaded_zip = st.file_uploader(
-            "Choose a GTFS ZIP file",
-            type=["zip"],
-            key=f"{prefix}_uploader",
-            help="Upload your gtfs.zip file containing standard GTFS files"
-        )
-        if uploaded_zip is not None:
-            new_file_key = f"file_{uploaded_zip.name}_{uploaded_zip.size}"
-            new_source = uploaded_zip
-        else:
-            if st.session_state[f"{prefix}_current_key"] and str(st.session_state[f"{prefix}_current_key"]).startswith("zip_"):
-                st.session_state[f"{prefix}_tables"] = {}
-                st.session_state[f"{prefix}_current_key"] = None
-                st.session_state[f"{prefix}_active_source"] = None
-                st.session_state.pop(f"{prefix}_validation_executed", None)
+    # if source_type == "Upload GTFS .zip":
+    uploaded_zip = st.file_uploader(
+        "Choose a GTFS ZIP file",
+        type=["zip"],
+        key=f"{prefix}_uploader",
+        help="Upload your gtfs.zip file containing standard GTFS files"
+    )
+    if uploaded_zip is not None:
+        new_file_key = f"file_{uploaded_zip.name}_{uploaded_zip.size}"
+        new_source = uploaded_zip
+    else:
+        if st.session_state[f"{prefix}_current_key"] and str(st.session_state[f"{prefix}_current_key"]).startswith("zip_"):
+            st.session_state[f"{prefix}_tables"] = {}
+            st.session_state[f"{prefix}_current_key"] = None
+            st.session_state[f"{prefix}_active_source"] = None
+            st.session_state.pop(f"{prefix}_validation_executed", None)
     # else:
     #     col_btn, col_path = st.columns([1, 4], vertical_alignment="center")
     #     with col_btn:
