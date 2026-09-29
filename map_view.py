@@ -1,6 +1,9 @@
+import json
+import os
 import pandas as pd
 import streamlit as st
 import pydeck as pdk
+from pathlib import Path
 
 def parse_hex_color(hex_str, default_color):
     if not isinstance(hex_str, str):
@@ -155,9 +158,9 @@ def render_dual_gtfs_map(tables_a, tables_b, height=800):
     has_a = bool(tables_a)
     has_b = bool(tables_b)
 
-    if not has_a and not has_b:
-        st.info("Load Feed A or Feed B below to view map routes and stops.")
-        return
+    # if not has_a and not has_b:
+    #     st.info("Load Feed A or Feed B below to view map routes and stops.")
+    #     return
 
     mode_options = []
     if has_a:
@@ -170,18 +173,35 @@ def render_dual_gtfs_map(tables_a, tables_b, height=800):
     m_col1, m_col2 = st.columns([2, 2], vertical_alignment="center")
 
     with m_col1:
-        map_mode = st.radio(
-            "Map Display Mode:",
-            mode_options,
-            horizontal=True,
-            key="dual_map_mode"
-        )
+        if mode_options:
+            map_mode = st.radio(
+                "Map Display Mode:",
+                mode_options,
+                horizontal=True,
+                key="dual_map_mode"
+            )
+        else:
+            map_mode = None
+            st.caption("System Reference. Upload GTFS feed to overlay routes and stops.")
 
     selected_shape_a = None
     selected_shape_b = None
     overlay_top = "Feed A"
 
     with m_col2:
+        c_rail, c_color = st.columns([1.2, 1], vertical_alignment="center")
+        with c_rail:
+            show_rail_ref = st.checkbox(
+                "Metro System Refrence",
+                value=True,
+                help="Overlays LA Metro Rail and BRT Network"
+            )
+        # with c_color:
+        #     use_route_colors = st.checkbox(
+        #         "Use route_color",
+        #         value=True,
+        #         help="Color routes by their GTFS route_color."
+        #     )
         if map_mode == "Feed A" and "shapes.txt" in tables_a:
             sh_a = sorted(tables_a["shapes.txt"]["shape_id"].unique()) if "shape_id" in tables_a["shapes.txt"].columns else []
             selected_shape_a = st.selectbox("Filter Shape:", ["All Shapes"] + sh_a, key="sh_filter_a")
@@ -228,16 +248,64 @@ def render_dual_gtfs_map(tables_a, tables_b, height=800):
     else:
         all_layers = layers_a + layers_b
 
-    if not all_layers or not all_lats:
-        st.warning(
-            "No spatial coordinates found to display for the active selection."
-        )
+    rail_layers = []
+    if show_rail_ref:
+        rail_file = Path("LA_Metro_System.geojson")
+        if rail_file.is_file():
+            try:
+                with open(rail_file, "r", encoding="utf-8") as f:
+                    geojson_data = json.load(f)
+
+                for feat in geojson_data.get("features", []):
+                    props = feat.get("properties", {})
+                    hex_col = props.get("route_color", "")
+                    props["line_color"] = parse_hex_color(
+                        hex_col, [100, 100, 100, 220]
+                    )
+
+                    line_name = (
+                        props.get("route_long_name")
+                        or props.get("route_desc")
+                        or "Metro Rail"
+                    )
+                    props["tooltip_next"] = f"{line_name}"
+
+                rail_layers.append(
+                    pdk.Layer(
+                        "GeoJsonLayer",
+                        id="la_metro_rail_ref",
+                        data=geojson_data,
+                        stroked=True,
+                        filled=False,
+                        opacity=0.05,
+                        line_width_scale=1,
+                        line_width_min_pixels=3,
+                        get_line_color="properties.line_color",
+                        get_line_width=3,
+                    )
+                )
+            except Exception as e:
+                st.caption(f"Could not load Metro Rail Layer: {e}")
+
+    all_layers = rail_layers + all_layers
+
+    if not all_layers:
+        st.warning("No map layers available to display.")
         return
 
+    if all_lats:
+        center_lat = float(sum(all_lats) / len(all_lats))
+        center_lon = float(sum(all_lons) / len(all_lons))
+        zoom_level = 10
+    else:
+        center_lat = 34.0522
+        center_lon = -118.2437
+        zoom_level = 10
+
     view_state = pdk.ViewState(
-        latitude=float(sum(all_lats) / len(all_lats)),
-        longitude=float(sum(all_lons) / len(all_lons)),
-        zoom=10,
+        latitude=center_lat,
+        longitude=center_lon,
+        zoom=zoom_level,
         pitch=0,
     )
 
