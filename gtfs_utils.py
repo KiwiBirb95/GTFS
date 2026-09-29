@@ -1,13 +1,15 @@
 import io
 import zipfile
 from pathlib import Path
-import tkinter as tk
-from tkinter import filedialog
 import pandas as pd
 import streamlit as st
 
 def pick_folder():
     try:
+
+        import tkinter as tk
+        from tkinter import filedialog
+
         root = tk.Tk()
         root.withdraw()
         root.wm_attributes("-topmost", 1)
