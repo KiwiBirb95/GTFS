@@ -79,7 +79,7 @@ def handle_source_ingestion(prefix, title_label):
         help="Upload your gtfs.zip file containing standard GTFS files"
     )
     if uploaded_zip is not None:
-        new_file_key = f"file_{uploaded_zip.name}_{uploaded_zip.size}"
+        new_file_key = f"zip_{uploaded_zip.name}_{uploaded_zip.size}"
         new_source = uploaded_zip
     else:
         if st.session_state[f"{prefix}_current_key"] and str(st.session_state[f"{prefix}_current_key"]).startswith("zip_"):
@@ -87,6 +87,10 @@ def handle_source_ingestion(prefix, title_label):
             st.session_state[f"{prefix}_current_key"] = None
             st.session_state[f"{prefix}_active_source"] = None
             st.session_state.pop(f"{prefix}_validation_executed", None)
+            st.session_state["dual_map_mode"] = (
+                "Feed B" if prefix == "feed_a" else "Feed A"
+            )
+            st.rerun()
     # else:
     #     col_btn, col_path = st.columns([1, 4], vertical_alignment="center")
     #     with col_btn:
@@ -237,20 +241,17 @@ render_dual_gtfs_map(tables_a, tables_b, height=800)
 
 if tables_a and tables_b:
     st.divider()
-    with st.expander(
-        "GTFS Feed Diff Comparison (Side-by-Side)", expanded=True
-    ):
-        diff_tab1, diff_tab2 = st.tabs(
-            ["Table Grid Diff", "Git-Style Diff (st-diff-viewer)"]
+    diff_tab1, diff_tab2 = st.tabs(
+        ["Table Grid Diff", "Git-Style Diff (st-diff-viewer)"]
+    )
+    with diff_tab1:
+        render_diff_view(
+            tables_a, tables_b, name_a="Feed A", name_b="Feed B"
         )
-        with diff_tab1:
-            render_diff_view(
-                tables_a, tables_b, name_a="Feed A", name_b="Feed B"
-            )
-        with diff_tab2:
-            render_text_diff_view(
-                tables_a, tables_b, name_a="Feed A", name_b="Feed B"
-            )
+    with diff_tab2:
+        render_text_diff_view(
+            tables_a, tables_b, name_a="Feed A", name_b="Feed B"
+        )
 
 st.divider()
 

@@ -309,6 +309,8 @@ def render_dual_gtfs_map(tables_a, tables_b, height=800):
         pitch=0,
     )
 
+    deck_key = f"map_deck_{map_mode}_{selected_shape_a}_{selected_shape_b}_{len(all_layers)}"
+
     st.pydeck_chart(
         pdk.Deck(
             layers=all_layers,
@@ -316,5 +318,6 @@ def render_dual_gtfs_map(tables_a, tables_b, height=800):
             tooltip={"text": "Feed: {feed}\nName: {stop_name}\nID: {stop_id}"},
             map_style="light",
         ),
-        height=height
+        height=height,
+        key=deck_key,
     )
