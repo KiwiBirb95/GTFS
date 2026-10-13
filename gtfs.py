@@ -1,5 +1,6 @@
 import os
 import sys
+from gtfs_utils import render_inline_cascader
 
 if sys.platform == "win32":
     from asyncio.proactor_events import _ProactorBasePipeTransport
@@ -54,20 +55,6 @@ PRIORITY_ORDER = [
 def handle_source_ingestion(prefix, title_label):
     st.subheader(title_label)
 
-    # source_type = st.radio(
-    #     f"Select GTFS Source ({title_label}):",
-    #     ["Upload GTFS .zip", "Open Unzipped Folder"],
-    #     horizontal = True,
-    #     key=f"{prefix}_source_type_radio"
-    # )
-
-    # source_type = st.radio(
-    #     f"Select GTFS Source ({title_label}):",
-    #     ["Upload GTFS .zip"],
-    #     horizontal = True,
-    #     key=f"{prefix}_source_type_radio"
-    # )
-
     new_file_key = None
     new_source = None
 
@@ -91,31 +78,6 @@ def handle_source_ingestion(prefix, title_label):
                 "Feed B" if prefix == "feed_a" else "Feed A"
             )
             st.rerun()
-    # else:
-    #     col_btn, col_path = st.columns([1, 4], vertical_alignment="center")
-    #     with col_btn:
-    #         if st.button("Browse Folder...", key=f"{prefix}_btn_browse", width="stretch"):
-    #             chosen = pick_folder()
-    #             if chosen:
-    #                 st.session_state[f"{prefix}_selected_folder"] = chosen
-    #                 st.rerun()
-
-    #     selected_dir = st.session_state.get(f"{prefix}_selected_folder", "")
-    #     with col_path:
-    #         if selected_dir:
-    #             st.code(selected_dir, language="text")
-    #         else:
-    #             st.caption("No folder selected yet. Click 'Browse Folder' to select an unzipped GTFS folder.")
-
-    #     if selected_dir and os.path.isdir(selected_dir):
-    #         new_file_key = f"folder_{os.path.abspath(selected_dir)}"
-    #         new_source = selected_dir
-    #     else:
-    #         if st.session_state[f"{prefix}_current_key"] and str(st.session_state[f"{prefix}_current_key"]).startswith("folder_"):
-    #             st.session_state[f"{prefix}_tables"] = {}
-    #             st.session_state[f"{prefix}_current_key"] = None
-    #             st.session_state[f"{prefix}_active_source"] = None
-    #             st.session_state.pop(f"{prefix}_validation_executed", None)
 
     if new_file_key and (st.session_state[f"{prefix}_current_key"] != new_file_key):
         with st.spinner(f"Extracting and parsing GTFS tables for {title_label}..."):
@@ -196,18 +158,34 @@ def render_feed_editor(prefix, title_label):
                         )
                         st.rerun()
 
+                current_df = st.session_state[f"{prefix}_tables"][filename]
+                row_count = len(current_df)
+
+                if filename == "stop_times.txt":
+                    render_inline_cascader(prefix, tables)
+                current_df = st.session_state[f"{prefix}_tables"][filename]
+                row_count = len(current_df)
+
+                if row_count > 25000:
+                    st.caption(f"Large table ({row_count:,} rows). Direct full-table edits may take a moment to sync.")
+                num_rows_clamped = min(550, max(140, (min(row_count, 15) + 1) * 35 + 3))
+
                 edited_df = st.data_editor(
                     st.session_state[f"{prefix}_tables"][filename],
                     key = f"{prefix}_editor_{filename}",
                     num_rows="dynamic",
                     width='stretch',
-                    height=520
+                    height=num_rows_clamped
                 )
+
                 if f"{prefix}_tables" in st.session_state:
                     st.session_state[f"{prefix}_tables"][filename] = edited_df
+
         st.divider()
+
         zip_output = create_gtfs_zip(st.session_state.get(f"{prefix}_tables", tables))
         source_ref = st.session_state.get(f"{prefix}_active_source")
+
         if isinstance(source_ref, (str, Path)):
             base_name = Path(source_ref).name
         elif hasattr(source_ref, "name") and source_ref.name:
@@ -237,7 +215,7 @@ st.divider()
 tables_a = st.session_state.get("feed_a_tables", {})
 tables_b = st.session_state.get("feed_b_tables", {})
 
-render_dual_gtfs_map(tables_a, tables_b, height=800)
+render_dual_gtfs_map(tables_a, tables_b, height=1000)
 
 if tables_a and tables_b:
     st.divider()
