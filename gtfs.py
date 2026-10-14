@@ -1,5 +1,6 @@
 import os
 import sys
+import pandas as pd
 from gtfs_utils import render_inline_cascader
 
 if sys.platform == "win32":
@@ -161,25 +162,53 @@ def render_feed_editor(prefix, title_label):
                 current_df = st.session_state[f"{prefix}_tables"][filename]
                 row_count = len(current_df)
 
+                filter_trips = None
                 if filename == "stop_times.txt":
-                    render_inline_cascader(prefix, tables)
+                    filter_trips = render_inline_cascader(prefix, tables)
+
                 current_df = st.session_state[f"{prefix}_tables"][filename]
-                row_count = len(current_df)
 
-                if row_count > 25000:
-                    st.caption(f"Large table ({row_count:,} rows). Direct full-table edits may take a moment to sync.")
-                num_rows_clamped = min(550, max(140, (min(row_count, 15) + 1) * 35 + 3))
+                if filter_trips is not None and not current_df.empty:
+                    sub_mask = current_df["trip_id"].isin(filter_trips)
+                    display_df = current_df[sub_mask].copy()
 
-                edited_df = st.data_editor(
-                    st.session_state[f"{prefix}_tables"][filename],
-                    key = f"{prefix}_editor_{filename}",
-                    num_rows="dynamic",
-                    width='stretch',
-                    height=num_rows_clamped
-                )
+                    if "stop_sequence" in display_df.columns:
+                        display_df["_sort_seq"] = pd.to_numeric(display_df["stop_sequence"], errors="coerce")
+                        display_df = display_df.sort_values(["trip_id", "_sort_seq"]).drop(columns=["_sort_seq"])
 
-                if f"{prefix}_tables" in st.session_state:
-                    st.session_state[f"{prefix}_tables"][filename] = edited_df
+                    st.caption(f"Filtered: Showing **{len(display_df)}** stops for selected trip(s) (out of {len(current_df):,} total rows).")
+
+                    row_count = len(display_df)
+                    num_rows_clamped = min(550, max(140, (min(row_count, 15) + 1) * 35 + 3))
+
+                    filter_key = "_".join(str(t) for t in filter_trips[:2])
+                    edited_df = st.data_editor(
+                        display_df,
+                        key=f"{prefix}_editor_{filename}_{filter_key}",
+                        num_rows="dynamic",
+                        width='stretch',
+                        height=num_rows_clamped
+                    )
+
+                    if not edited_df.equals(display_df):
+                        other_rows = current_df[~sub_mask]
+                        st.session_state[f"{prefix}_tables"][filename] = pd.concat([other_rows, edited_df], ignore_index=True)
+                else:
+                    row_count = len(current_df)
+                    if row_count > 25000:
+                        st.caption(f"Large table ({row_count:,} rows). Direct full-table edits may take a moment to sync.")
+                    num_rows_clamped = min(550, max(140, (min(row_count, 15) + 1) * 35 + 3))
+
+                    edited_df = st.data_editor(
+                        current_df,
+                        key=f"{prefix}_editor_{filename}",
+                        num_rows="dynamic",
+                        width='stretch',
+                        height=num_rows_clamped
+                    )
+
+                    if f"{prefix}_tables" in st.session_state:
+                        st.session_state[f"{prefix}_tables"][filename] = edited_df
 
         st.divider()
 
