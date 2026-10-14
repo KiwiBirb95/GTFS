@@ -113,13 +113,20 @@ def render_inline_cascader(prefix: str, tables: dict):
             key=f"{prefix}_inline_cscade_mode"
         )
 
-        if c_mode == "Single Trip (Stop-To-Stop)":
+        filter_trips = None
+
+        if c_mode.startswith("Single Trip"):
             col_t, col_s, col_m, col_btn = st.columns([2, 2, 1.5, 1.2], vertical_alignment="bottom")
             
             unique_trips = trips_df["trip_id"].dropna().unique().tolist()
             chosen_trip = col_t.selectbox("Trip ID", unique_trips, key=f"{prefix}_casc_trip")
+            filter_trips = [chosen_trip]
 
             trip_stops = stops_times_df[stops_times_df["trip_id"] == chosen_trip].copy()
+            if trip_stops.empty:
+                st.warning(f"No stop times found for Trip `{chosen_trip}`.")
+                return None
+
             trip_stops["stop_sequence"] = trip_stops["stop_sequence"].astype(int)
             trip_stops = trip_stops.sort_values("stop_sequence")
 
@@ -164,6 +171,12 @@ def render_inline_cascader(prefix: str, tables: dict):
             chosen_route = col_r.selectbox("Route", routes, key=f"{prefix}_casc_route")
 
             route_trips = trips_df[trips_df["route_id"] == chosen_route]["trip_id"].unique().tolist()
+            filter_trips = route_trips
+
+            matching_stops = stops_times_df[stops_times_df["trip_id"].isin(route_trips)]
+            if matching_stops.empty:
+                st.warning(f"No stop times found for Route `{chosen_route}`.")
+                return None
 
             route_stops = stops_times_df[stops_times_df["trip_id"].isin(route_trips)].sort_values(
                 ["trip_id", "stop_sequence"]
@@ -196,6 +209,7 @@ def render_inline_cascader(prefix: str, tables: dict):
                 trips_to_shift = ordered_trips[start_idx:]
                 
                 mask = stops_times_df["trip_id"].isin(trips_to_shift)
+
                 def shift_val(t):
                     return seconds_to_gtfs_time(gtfs_time_to_seconds(t) + delta_sec)
 
@@ -207,3 +221,10 @@ def render_inline_cascader(prefix: str, tables: dict):
                 )
                 st.success(f"Shifted {len(trips_to_shift)} trips by {shift_min_hw:+} min!")
                 st.rerun()
+
+        enable_filter = st.checkbox(
+            "Filter table below to selected trip(s)",
+            value=True,
+            key=f"{prefix}_toggle_filter_below"
+        )
+        return filter_trips if enable_filter else None
