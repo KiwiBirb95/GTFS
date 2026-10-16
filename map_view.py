@@ -127,11 +127,9 @@ def process_feed_spatial(tables_dict, feed_label, line_color, stop_color, select
             
             if not df_stops.empty:
                 df_stops["feed"] = feed_label
-                df_stops["tooltip_next"] = (
+                df_stops["tooltip_text"] = (
                     f"Feed: {feed_label}\nStop: "
-                    + df_stops.get("stop_name", df_stops["stop_id"]).astype(
-                        str
-                    )
+                    + df_stops.get("stop_name", df_stops["stop_id"]).astype(str)
                     + "\nID: "
                     + df_stops["stop_id"].astype(str)
                 )
@@ -268,7 +266,7 @@ def render_dual_gtfs_map(tables_a, tables_b, height=800):
                         or props.get("route_desc")
                         or "Metro Rail"
                     )
-                    props["tooltip_next"] = f"{line_name}"
+                    props["tooltip_text"] = f"Metro Reference\nLine:{line_name}"
 
                 rail_layers.append(
                     pdk.Layer(
@@ -315,7 +313,7 @@ def render_dual_gtfs_map(tables_a, tables_b, height=800):
         pdk.Deck(
             layers=all_layers,
             initial_view_state=view_state,
-            tooltip={"text": "Feed: {feed}\nName: {stop_name}\nID: {stop_id}"},
+            tooltip={"text": "{tooltip_text}"},
             map_style="light",
         ),
         height=height,
