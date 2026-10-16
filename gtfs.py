@@ -1,7 +1,8 @@
 import os
 import sys
 import pandas as pd
-from gtfs_utils import render_inline_cascader
+from gtfs_utils import render_inline_cascader, render_inline_frequencies_cascader
+from history_log import render_history_sidebar, record_change
 
 if sys.platform == "win32":
     from asyncio.proactor_events import _ProactorBasePipeTransport
@@ -34,6 +35,8 @@ st.set_page_config(
     page_icon="🚃",
     layout='wide'
 )
+
+render_history_sidebar()
 
 st.title("GTFS Feed Editor")
 
@@ -91,6 +94,7 @@ def handle_source_ingestion(prefix, title_label):
             else:
                 st.error(f"No valid .txt tables found in {title_label}.")
 
+@st.fragment
 def render_feed_editor(prefix, title_label):
     tables = st.session_state.get(f"{prefix}_tables", {})
 
@@ -143,7 +147,9 @@ def render_feed_editor(prefix, title_label):
                         width='stretch',
                         help=f"Wipe values in '{target_col}' to empty while preserving the header row"
                     ):
-                        st.session_state[f"{prefix}_tables"][filename][target_col] = ""
+                        cleared_df = st.session_state[f"{prefix}_tables"][filename].copy()
+                        cleared_df[target_col] = ""
+                        record_change(prefix, filename, f"Cleared Column '{target_col}'", cleared_df)
                         st.rerun()
 
                 with c_reset:
@@ -165,6 +171,8 @@ def render_feed_editor(prefix, title_label):
                 filter_trips = None
                 if filename == "stop_times.txt":
                     filter_trips = render_inline_cascader(prefix, tables)
+                elif filename == 'frequencies.txt':
+                    render_inline_frequencies_cascader(prefix, tables)
 
                 current_df = st.session_state[f"{prefix}_tables"][filename]
 
@@ -181,10 +189,12 @@ def render_feed_editor(prefix, title_label):
                     row_count = len(display_df)
                     num_rows_clamped = min(550, max(140, (min(row_count, 15) + 1) * 35 + 3))
 
+                    hist_ver = st.session_state.get(f"{prefix}_history_idx", 0)
                     filter_key = "_".join(str(t) for t in filter_trips[:2])
+
                     edited_df = st.data_editor(
                         display_df,
-                        key=f"{prefix}_editor_{filename}_{filter_key}",
+                        key=f"{prefix}_editor_{filename}_{filter_key}_{hist_ver}",
                         num_rows="dynamic",
                         width='stretch',
                         height=num_rows_clamped
@@ -192,20 +202,25 @@ def render_feed_editor(prefix, title_label):
 
                     if not edited_df.equals(display_df):
                         other_rows = current_df[~sub_mask]
-                        st.session_state[f"{prefix}_tables"][filename] = pd.concat([other_rows, edited_df], ignore_index=True)
+                        updated_master = pd.concat([other_rows, edited_df], ignore_index=True)
+                        record_change(prefix, filename, f"Edited {len(edited_df)} rows in {filename}", updated_master)
                 else:
                     row_count = len(current_df)
                     if row_count > 25000:
                         st.caption(f"Large table ({row_count:,} rows). Direct full-table edits may take a moment to sync.")
                     num_rows_clamped = min(550, max(140, (min(row_count, 15) + 1) * 35 + 3))
 
+                    hist_ver = st.session_state.get(f"{prefix}_history_idx", 0)
                     edited_df = st.data_editor(
                         current_df,
-                        key=f"{prefix}_editor_{filename}",
+                        key=f"{prefix}_editor_{filename}_{hist_ver}",
                         num_rows="dynamic",
                         width='stretch',
                         height=num_rows_clamped
                     )
+
+                    if not edited_df.equals(current_df):
+                        record_change(prefix, filename, f"Edited rows in {filename}", edited_df)
 
                     if f"{prefix}_tables" in st.session_state:
                         st.session_state[f"{prefix}_tables"][filename] = edited_df
@@ -223,7 +238,7 @@ def render_feed_editor(prefix, title_label):
             base_name = f"{prefix}_gtfs_feed"
         st.download_button(
             label=f"Download Updated GTFS ZIP ({prefix.upper()})",
-            data=zip_output,
+            data=lambda: create_gtfs_zip(st.session_state.get(f"{prefix}_tables", tables)),
             file_name=f"{base_name}_modified.zip",
             mime="application/zip",
             type="primary",
